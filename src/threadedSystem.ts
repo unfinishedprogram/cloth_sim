@@ -2,6 +2,7 @@ import FVec2 from "./fVec2";
 import { Vertex } from "./vertex";
 import ClothWorker from "worker-loader!./worker";
 const G = -0.05;
+const acc = 100000;
 
 export class ThreadedSystem {
 	elm:HTMLCanvasElement = document.createElement("canvas");
@@ -19,7 +20,7 @@ export class ThreadedSystem {
 	}
 
 	constraints: Int32Array;
-	verticies: Float32Array;
+	verticies: Int32Array;
 	pinned: Int8Array;
 	coms: BigInt64Array;
 
@@ -47,7 +48,7 @@ export class ThreadedSystem {
 
 		// Setting up view for buffers
 		this.constraints = new Int32Array(this.constraints_buffer)
-		this.verticies = new Float32Array(this.verticies_buffer)
+		this.verticies = new Int32Array(this.verticies_buffer)
 		this.pinned = new Int8Array(this.pinned_buffer)
 
 		this.elm.width = 800*2;
@@ -83,10 +84,10 @@ export class ThreadedSystem {
 	addVert(vert:Vertex):number {
 		let i = this.vert_step_size * this.verticies_count;
 		this.verticies.set([
-				vert.pos.x,
-				vert.pos.y,
-				vert.vol.x,
-				vert.vol.y
+				vert.pos.x*acc,
+				vert.pos.y*acc,
+				vert.vol.x*acc,
+				vert.vol.y*acc
 			], i)
 		return this.verticies_count++;
 	}
@@ -97,19 +98,7 @@ export class ThreadedSystem {
 		this.constraints[i+1] = b;
 	}
 
-	stepVertex(index:number){
-		let vert = this.getVertex(index);
-		let i = index * this.vert_step_size;
-
-		// Adding the velocity to position
-		if(this.pinned[index] == 1) return;
-		this.verticies[ i ] = vert.px + vert.vx;
-		this.verticies[i+1] = vert.py + vert.vy;
-		this.verticies[i+2] = vert.vx;
-		this.verticies[i+3] = vert.vy + 0.005;
-	}
-
-	pin(index:number){
+	pin(index:number){ 
 		Atomics.store(this.pinned, index, 1)
 	}
 
@@ -117,47 +106,15 @@ export class ThreadedSystem {
 		Atomics.store(this.pinned, index, 0)
 	}
 
-	getVertex(index:number) {
-		const i = index * this.vert_step_size;
-		return {
-			px: this.verticies[i+0],
-			py: this.verticies[i+1],
-			vx: this.verticies[i+2],
-			vy: this.verticies[i+3]
-		}
-	}
-
-	constrain(_a:number, _b:number) {
-		let a = this.getVertex(_a);
-		let b = this.getVertex(_b);
-
-		let i_a = _a * this.vert_step_size;
-		let i_b = _b * this.vert_step_size;
-
-		let n = FVec2.sub(a.px, a.py, b.px, b.py);
-		let mag = FVec2.magnitude(n.x, n.y);
-		n = FVec2.multiplyScalor(n.x, n.y,
-			 (0.25 / mag) * Math.max((mag - this.constraint_settings.len), 0));
-		
-		this.verticies[i_a+2] = (a.vx - n.x) * this.constraint_settings.drag;
-		this.verticies[i_a+3] = (a.vy - n.y) * this.constraint_settings.drag;
-		this.verticies[i_b+2] = (b.vx + n.x) * this.constraint_settings.drag;
-		this.verticies[i_b+3] = (b.vy + n.y) * this.constraint_settings.drag;
-	}
-
-	applyConstraint(index:number){
-		let i = index * 2;
-		this.constrain(this.constraints[i], this.constraints[i+1]);
-	}
 
 	draw = () => {
 		this.ctx.clearRect(-this.elm.width, -this.elm.width, this.elm.width*4, this.elm.height*4)
 		this.ctx.beginPath();
 		for( let i = 0; i < this.constraints_count * 2; i += 2 ) {
-			let x1 = this.verticies[this.constraints[ i ] * this.vert_step_size ]
-			let y1 = this.verticies[this.constraints[ i ] * this.vert_step_size + 1]
-			let x2 = this.verticies[this.constraints[i + 1] * this.vert_step_size ]
-			let y2 = this.verticies[this.constraints[i + 1] * this.vert_step_size + 1]
+			let x1 = this.verticies[this.constraints[ i ] * this.vert_step_size ] / acc;
+			let y1 = this.verticies[this.constraints[ i ] * this.vert_step_size + 1] / acc;
+			let x2 = this.verticies[this.constraints[i + 1] * this.vert_step_size ] / acc;
+			let y2 = this.verticies[this.constraints[i + 1] * this.vert_step_size + 1] / acc;
 
 			this.ctx.moveTo(x1, y1)
 			this.ctx.lineTo(x2, y2)

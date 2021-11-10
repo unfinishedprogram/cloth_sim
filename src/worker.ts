@@ -2,7 +2,7 @@ import FVec2 from "./fVec2";
 
 const ctx: Worker = self as any;
 
-const acc: 1000;
+const acc = 100000;
 
 interface _Event extends MessageEvent {
 	data: {
@@ -37,7 +37,6 @@ class SystemThread {
 	vert_step_size = 4;
 
 	constructor(buffers:ArrayBuffer[], vmin:number, vmax:number, cmin:number, cmax:number, threads:number) {
-
 		this.coms = new BigInt64Array(buffers[0])
 		this.constraints = new Int32Array(buffers[1])
 		this.verticies = new Int32Array(buffers[2])
@@ -55,20 +54,28 @@ class SystemThread {
 		let i_a = _a * this.vert_step_size;
 		let i_b = _b * this.vert_step_size;
 
-		let n = FVec2.sub(
-			this.verticies[i_a+0], 
-			this.verticies[i_a+1], 
-			this.verticies[i_b+0], 
-			this.verticies[i_b+1]
+		let n = FVec2.sub (
+			this.verticies[i_a+0] / acc,
+			this.verticies[i_a+1] / acc,
+			this.verticies[i_b+0] / acc,
+			this.verticies[i_b+1] / acc
 			);
+
+		// let n = FVec2.sub (
+		// 	Atomics.load(this.verticies,i_a) /acc,
+		// 	Atomics.load(this.verticies,i_a+1) /acc,
+		// 	Atomics.load(this.verticies,i_b) /acc,
+		// 	Atomics.load(this.verticies,i_b+1) /acc
+		// );
 
 		let mag = FVec2.magnitude(n.x, n.y);
 		n = FVec2.multiplyScalor(n.x, n.y, (0.01) * Math.max((mag - this.constraint_settings.len), 0));
-		this.verticies[i_a+2] -= n.x;
-		this.verticies[i_a+3] -= n.y;
 
-		this.verticies[i_b+2] += n.x;
-		this.verticies[i_b+3] += n.y;
+		Atomics.sub(this.verticies, i_a+2, n.x * acc);
+		Atomics.sub(this.verticies, i_a+3, n.y * acc);
+
+		Atomics.add(this.verticies, i_b+2, n.x * acc);
+		Atomics.add(this.verticies, i_b+3, n.y * acc);
 	}
 
 	applyConstraint(index:number){
@@ -82,15 +89,22 @@ class SystemThread {
 		// Adding the velocity to position
 		if(this.pinned[index] == 1) return;
 
-		this.verticies[ i ] += this.verticies[i+2];
-		this.verticies[i+1] += this.verticies[i+3];
-		this.verticies[i+3] += 0.005;
+		Atomics.add(this.verticies, i, Atomics.load(this.verticies, i+2));
+		Atomics.add(this.verticies, i+1, Atomics.load(this.verticies, i+3));
+		Atomics.add(this.verticies, i+3, 0.005 * acc);
 
-		this.verticies[i+2] *= this.constraint_settings.drag;
-		this.verticies[i+3] *= this.constraint_settings.drag;
+		Atomics.store(this.verticies, i+2, Atomics.load(this.verticies, i+2) * this.constraint_settings.drag)
+		Atomics.store(this.verticies, i+3, Atomics.load(this.verticies, i+3) * this.constraint_settings.drag)
+
+		// this.verticies[ i ] += this.verticies[i+2];
+		// this.verticies[i+1] += this.verticies[i+3];
+		// this.verticies[i+3] += 0.005 * acc;
+
+		// this.verticies[i+2] *= this.constraint_settings.drag;
+		// this.verticies[i+3] *= this.constraint_settings.drag;
 	}
 
-	stepConstraints(){
+	stepConstraints() {
 		for(let i = this.cmin; i < this.cmax; i++){
 			this.applyConstraint(i);
 		}
@@ -102,7 +116,7 @@ class SystemThread {
 		}
 	}
 
-	wait(){
+	wait() {
 		Atomics.wait(this.coms, 1, BigInt(0))
 	}
 
