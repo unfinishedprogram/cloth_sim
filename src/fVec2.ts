@@ -14,7 +14,7 @@ export default class FVec2 {
 	} 
 	
 	static magnitude(x:number, y:number):number {
-		return Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
+		return (x ** 2 + y ** 2) ** 0.5;
 	} 
 	
 	static multiplyScalor(x:number, y:number, s:number):V2{

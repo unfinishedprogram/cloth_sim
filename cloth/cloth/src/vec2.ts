@@ -12,6 +12,7 @@ export default class Vec2 {
 
 	static dotProduct = (v1:Vec2, v2:Vec2) => (v1.x * v2.x + v1.y * v2.y);
 	static dist = (v1:Vec2, v2:Vec2) => new Vec2(v1.x-v2.x, v1.y-v2.y).magnitude();
+	// magnitude = () => (this.x ** 2 + this.y ** 2) ** 0.5;
 	magnitude = () => Math.sqrt(Math.pow(this.x, 2) + Math.pow(this.y, 2));
 	multiplyScalor = (s:number) => new Vec2(this.x * s, this.y * s);
 	add = (v:Vec2) => new Vec2(this.x + v.x, this.y + v.y);
@@ -57,4 +58,16 @@ export default class Vec2 {
 		this.x = v.x;
 		this.y = v.y;
 	}
+}
+
+
+interface props {
+	author: {
+		name : String, 
+		avatarURL : String,
+
+	},
+
+	date:String,
+	text:String
 }

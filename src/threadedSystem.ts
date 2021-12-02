@@ -35,10 +35,8 @@ export class ThreadedSystem {
 	constructor(numVerts:number, numConstraints:number) {	
 		// Getting the thread count for optomal performance
 		this.thread_count = navigator.hardwareConcurrency
-		this.thread_count = 4;
-		console.log(this.thread_count);
 
-		this.coms_buffer = new SharedArrayBuffer(16);
+		this.coms_buffer = new SharedArrayBuffer(24);
 		this.coms = new BigInt64Array(this.coms_buffer);
 
 		// Initalizing buffers
@@ -51,9 +49,11 @@ export class ThreadedSystem {
 		this.verticies = new Int32Array(this.verticies_buffer)
 		this.pinned = new Int8Array(this.pinned_buffer)
 
-		this.elm.width = 800*2;
-		this.elm.height = 800*2;
+		this.elm.width = 800;
+		this.elm.height = 800;
 		this.ctx = this.elm.getContext("2d")!;
+		this.ctx.scale(0.25, 0.25);
+
 	}
 
 	start() {
@@ -77,6 +77,7 @@ export class ThreadedSystem {
 				cmax: i == this.thread_count - 1 ? this.constraints_count : (i+1) * cper_thread,
 				threads:this.thread_count
 			};
+			
 			this.workers[i].postMessage(message); 
 		}
 	}
@@ -106,15 +107,17 @@ export class ThreadedSystem {
 		Atomics.store(this.pinned, index, 0)
 	}
 
-
 	draw = () => {
-		this.ctx.clearRect(-this.elm.width, -this.elm.width, this.elm.width*4, this.elm.height*4)
+
+		this.ctx.clearRect(0, 0, this.elm.width*4, this.elm.height*4)
 		this.ctx.beginPath();
+
 		for( let i = 0; i < this.constraints_count * 2; i += 2 ) {
+
 			let x1 = this.verticies[this.constraints[ i ] * this.vert_step_size ] / acc;
 			let y1 = this.verticies[this.constraints[ i ] * this.vert_step_size + 1] / acc;
-			let x2 = this.verticies[this.constraints[i + 1] * this.vert_step_size ] / acc;
-			let y2 = this.verticies[this.constraints[i + 1] * this.vert_step_size + 1] / acc;
+			let x2 = this.verticies[this.constraints[i+1] * this.vert_step_size ] / acc;
+			let y2 = this.verticies[this.constraints[i+1] * this.vert_step_size + 1] / acc;
 
 			this.ctx.moveTo(x1, y1)
 			this.ctx.lineTo(x2, y2)

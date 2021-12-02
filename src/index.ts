@@ -5,7 +5,7 @@ import { System } from "./system";
 import { ThreadedSystem } from "./threadedSystem";
 
 let mySystem = new System();
-let threadSystem = new ThreadedSystem(100*100, 100*200);
+let threadSystem = new ThreadedSystem(200*200, 400*200);
 
 function makeCloth(w:number, h:number) {
 	for(let i = 0; i < h; i++) {
@@ -36,7 +36,7 @@ function makeClothThreaded (w:number, h:number) {
 }
 
 
-makeClothThreaded(100, 100)
+makeClothThreaded(200, 200)
 
 // console.log(threadSystem.verticies_count)
 // console.log(threadSystem.constraints_count)
@@ -46,9 +46,10 @@ makeClothThreaded(100, 100)
 // mySystem.vertecies[99].pin();
 
 threadSystem.pin(0)
-threadSystem.pin(24)
 threadSystem.pin(49)
 threadSystem.pin(99)
+threadSystem.pin(149)
+threadSystem.pin(199)
 
 document.body.appendChild (threadSystem.elm);
 
