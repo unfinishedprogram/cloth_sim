@@ -128,25 +128,11 @@ class SystemThread {
 	stepVertex(index:number){
 		let i = index * this.vert_step_size;
 
-		if(
-			index >= this.vmin && 
-			index < this.vmax
-		) {
-		} else{
-			console.log("ERROR")
-		}
-
-		// Adding the velocity to position
 		if(this.pinned[index] == 1) return;
-		
-		this.verticies.set(
-			[
-				this.verticies[i] + this.verticies[i+2],
-				this.verticies[i+1] + this.verticies[i+3],
-				this.verticies[i+2] * this.constraint_settings.drag,
-				(this.verticies[i+3]  + 0.005 * acc) * this.constraint_settings.drag,
-			],
-			i)
+		this.verticies[i] += this.verticies[i+2];
+		this.verticies[i+1] += this.verticies[i+3];
+		this.verticies[i+2] *= this.constraint_settings.drag;
+		this.verticies[i+3] = (this.verticies[i+3] + 0.005 * acc) * this.constraint_settings.drag;
 	}
 
 	stepConstraints() {
@@ -181,8 +167,6 @@ class SystemThread {
 	}
 
 	step() {
-		let start = performance.now();
-
 		this.stepComponents();
 		
 		if(Atomics.add(this.coms, 0, BigInt(1)) < BigInt(this.thread_count-1)){
@@ -191,7 +175,6 @@ class SystemThread {
 			Atomics.store(this.coms, 0, BigInt(0));
 			let not = 0;
 			while(not < 10) not+=Atomics.notify(this.coms, 1 + this.stepNum);
-			console.log(performance.now()-start);
 		}
 	}
 	

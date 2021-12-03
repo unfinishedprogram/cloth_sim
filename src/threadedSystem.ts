@@ -1,4 +1,4 @@
-import FVec2 from "./fVec2";
+import Vec2 from "../src/vec2";
 import { Vertex } from "./vertex";
 import ClothWorker from "worker-loader!./worker";
 const G = -0.05;
@@ -49,11 +49,24 @@ export class ThreadedSystem {
 		this.verticies = new Int32Array(this.verticies_buffer)
 		this.pinned = new Int8Array(this.pinned_buffer)
 
-		this.elm.width = 800;
-		this.elm.height = 800;
+		this.elm.width = 1200;
+		this.elm.height = 1200;
 		this.ctx = this.elm.getContext("2d")!;
-		this.ctx.scale(0.25, 0.25);
+		this.ctx.globalAlpha
+	}
 
+	createGrid(w:number, h:number) {
+		for(let i = 0; i < h; i++) {
+			for(let j = 0; j < w; j++) {
+				this.addVert(new Vertex(new Vec2(j * 10, i * 10)))
+				if(j > 0 ) {
+					this.addConstraint(i * w + j, i * w + j -1)
+				}
+				if(i > 0 ) {
+					this.addConstraint((i * w) + j, (i - 1) * w + j)
+				}
+			}
+		}
 	}
 
 	start() {
@@ -108,20 +121,22 @@ export class ThreadedSystem {
 	}
 
 	draw = () => {
-
-		this.ctx.clearRect(0, 0, this.elm.width*4, this.elm.height*4)
+		let now = performance.now();
+		this.ctx.clearRect(0, 0, this.elm.width, this.elm.height)
 		this.ctx.beginPath();
 
 		for( let i = 0; i < this.constraints_count * 2; i += 2 ) {
+			let m = 1/acc;
 
-			let x1 = this.verticies[this.constraints[ i ] * this.vert_step_size ] / acc;
-			let y1 = this.verticies[this.constraints[ i ] * this.vert_step_size + 1] / acc;
-			let x2 = this.verticies[this.constraints[i+1] * this.vert_step_size ] / acc;
-			let y2 = this.verticies[this.constraints[i+1] * this.vert_step_size + 1] / acc;
+			let x1 = this.verticies[this.constraints[ i ] * this.vert_step_size ] * m;
+			let y1 = this.verticies[this.constraints[ i ] * this.vert_step_size + 1] * m;
+			let x2 = this.verticies[this.constraints[i+1] * this.vert_step_size ] * m;
+			let y2 = this.verticies[this.constraints[i+1] * this.vert_step_size + 1] * m;
 
-			this.ctx.moveTo(x1, y1)
-			this.ctx.lineTo(x2, y2)
+			this.ctx.moveTo(x1*0.5, y1*0.5) 
+			this.ctx.lineTo(x2*0.5, y2*0.5)
 		}
 		this.ctx.stroke();
+		console.log(performance.now()-now);
 	}
 }
