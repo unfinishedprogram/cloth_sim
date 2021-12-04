@@ -48,17 +48,15 @@ class SystemThread {
 	}
 
 	constrainAsync(_a:number, _b:number) {
+
 		let i_a = _a * this.vert_step_size;
 		let i_b = _b * this.vert_step_size;
 
 		let nx = (this.verticies[i_a+0] - this.verticies[i_b+0]);
 		let ny = (this.verticies[i_a+1] - this.verticies[i_b+1]);
-		
-		let mag = FVec2.magnitude(nx, ny);
 
-		let mult = (0.01) * Math.max(mag - this.constraint_settings.len);
-
-		mult = Math.log10(mult+1);
+		// 10 - Constraint settings length, hard coded for performance
+		let mult = Math.log10(((0.01) * Math.max(FVec2.magnitude(nx, ny) - 10)) + 1);
 
 		nx *= mult;
 		ny *= mult;
