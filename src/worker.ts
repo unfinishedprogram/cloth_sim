@@ -58,7 +58,7 @@ class SystemThread {
 
 		let mult = (0.01) * Math.max(mag - this.constraint_settings.len);
 
-		mult = Math.log(mult+1);
+		mult = Math.log10(mult+1);
 
 		nx *= mult;
 		ny *= mult;
