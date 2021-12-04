@@ -40,14 +40,19 @@ export class ThreadedSystem {
 	verticies_count = 0;
 	vert_step_size = 4;
 	perf:PerformanceMetrics;
-	
+	altDown = false;
+	mouseDeltaX = 0;
+	mouseDeltaY = 0;
+	heldVerts: number[] = []
+	holding:boolean = false;
 	constructor(numVerts:number, numConstraints:number) {	
 		this.perf = new PerformanceMetrics();
+
 		document.body.appendChild(this.perf.elm);
 
 		// Getting the thread count for optomal performance
 		this.thread_count = navigator.hardwareConcurrency
-
+		// this.thread_count = 1;
 		this.perf.setMetric("thread_count", this.thread_count);
 		// this.thread_count = 4;
 
@@ -69,9 +74,25 @@ export class ThreadedSystem {
 		this.ctx = this.elm.getContext("2d")!;		
 		this.ctx.scale(0.5, 0.5);
 
+		document.addEventListener("keydown", (e) => {
+			if(e.code == "AltLeft"){
+				// this.startHold();
+			}
+		})
+
+		document.addEventListener("keyup", (e) => {
+			if(e.code == "AltLeft"){
+				this.endHold();
+			}
+		})
+
 		this.elm.addEventListener("mousemove", (e) => {
 			this.mousex = e.offsetX;
 			this.mousey = e.offsetY;
+			this.altDown = e.altKey;
+			this.mouseDeltaX = e.movementX;
+			this.mouseDeltaY = e.movementY;
+			this.hold();
 		})
 		
 		let ips_buff = new Array(10);
@@ -157,6 +178,38 @@ export class ThreadedSystem {
 	}
 
 
+	hold(){
+		this.heldVerts.forEach(i => {
+			this.verticies[i * this.vert_step_size] += this.mouseDeltaX * 2;
+			this.verticies[i * this.vert_step_size + 1] += this.mouseDeltaY * 2;
+		})
+	}
+
+	startHold(){
+		if(this.holding == true) return;
+
+		for( let i = 0; i < this.verticies_count; i++) {
+			let x = this.verticies[i * this.vert_step_size];
+			let y = this.verticies[i * this.vert_step_size + 1];
+			let d = FVec2.magnitude((x-this.mousex*2), (y-this.mousey*2));
+			if(d < 50){
+				this.pin(i)
+				this.heldVerts.push(i);
+				this.verticies[i * this.vert_step_size + 2] = 0;
+				this.verticies[i * this.vert_step_size + 3] = 0;
+			}
+		}
+		this.holding = true;
+	}
+
+	endHold() {
+		this.heldVerts.forEach(i => {
+			// this.unpin(i);/
+		})
+		this.heldVerts = [];
+		this.holding = false;
+	}
+
 	draw = () => {
 		let start = performance.now();
 
@@ -187,10 +240,11 @@ export class ThreadedSystem {
 			let x0 = this.mousex;
 			let y0 = this.mousey;
 
-
 			let d = FVec2.magnitude((x1-x0*2), (y1-y0*2));
 
-			if(d < 20){
+			if(d < 20 && this.altDown) {
+				// this.verticies[this.constraints[ i ] * vstep + 3] = this.mouseDeltaY;
+				// this.verticies[this.constraints[ i ] * vstep + 2] = this.mouseDeltaX;
 				this.constraints[i] = -1;
 				this.constraints[i+1] = -1;
 			}

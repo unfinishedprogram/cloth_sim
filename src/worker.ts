@@ -58,15 +58,19 @@ class SystemThread {
 		let ny = (this.verticies[i_a+1] - this.verticies[i_b+1]);
 
 		// 10 - Constraint settings length, hard coded for performance
-		let mult = Math.log10(((0.01) * Math.max(FVec2.magnitude(nx, ny) - 10)) + 1);
 
+		let d = FVec2.magnitude(nx, ny);
+
+		let mult = (Math.log2(Math.max(d - 10, 0) * 0.125 + 1)*2 )/d;
+
+		if(mult == 0) return;
+		
 		nx *= mult;
 		ny *= mult;
 
-		// let n = FVec2.multiplyScalor(nx, ny, (0.01) * Math.max((mag - this.constraint_settings.len), 0));
-
 		this.verticies[i_a+2] -= nx;
 		this.verticies[i_a+3] -= ny;
+
 		this.verticies[i_b+2] += nx;
 		this.verticies[i_b+3] += ny;
 	}
@@ -78,9 +82,9 @@ class SystemThread {
 		
 		this.verticies[i] += this.verticies[i+2]; // Velocity
 		this.verticies[i+1] += this.verticies[i+3]; // Velocity
-		this.verticies[i+2] *= 0.998; // Drag
-		this.verticies[i+3] += 0.005; // Gravity
-		this.verticies[i+3] *= 0.998; // Drag
+		this.verticies[i+3] += 0.002; // Gravity
+		this.verticies[i+2] *= 0.997; // Drag
+		this.verticies[i+3] *= 0.997; // Drag
 	}
 
 	stepConstraints() {
