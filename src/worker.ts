@@ -1,7 +1,6 @@
 import FVec2 from "./fVec2";
 
 const ctx: Worker = self as any;
-const acc = 100000;
 
 interface _Event extends MessageEvent {
 	data: {
@@ -16,8 +15,8 @@ interface _Event extends MessageEvent {
 
 class SystemThread {
 	stepNum = 0;
-	constraints: Int32Array;
-	verticies: Int32Array;
+	constraints: Float32Array;
+	verticies: Float32Array;
 	pinned: Int8Array;
 	coms: BigInt64Array;
 
@@ -37,8 +36,8 @@ class SystemThread {
 
 	constructor(buffers:ArrayBuffer[], vmin:number, vmax:number, cmin:number, cmax:number, threads:number) {
 		this.coms = new BigInt64Array(buffers[0])
-		this.constraints = new Int32Array(buffers[1])
-		this.verticies = new Int32Array(buffers[2])
+		this.constraints = new Float32Array(buffers[1])
+		this.verticies = new Float32Array(buffers[2])
 		this.pinned = new Int8Array(buffers[3])
 		this.thread_count = threads;
 
@@ -48,57 +47,28 @@ class SystemThread {
 		this.cmax = cmax;
 	}
 
-	constrainSync(_a:number, _b:number) {
-		let i_a = _a * this.vert_step_size;
-		let i_b = _b * this.vert_step_size;
-
-		let n = FVec2.sub (
-			Atomics.load(this.verticies,i_a) / acc,
-			Atomics.load(this.verticies,i_a+1) / acc,
-			Atomics.load(this.verticies,i_b) / acc,
-			Atomics.load(this.verticies,i_b+1) / acc
-		);
-			
-		let mag = FVec2.magnitude(n.x, n.y);
-
-		n = FVec2.multiplyScalor(n.x, n.y, (0.01) * Math.max((mag - this.constraint_settings.len), 0));
-
-		Atomics.sub(this.verticies, i_a+2, n.x * acc);
-		Atomics.sub(this.verticies, i_a+3, n.y * acc);
-
-		Atomics.add(this.verticies, i_b+2, n.x * acc);
-		Atomics.add(this.verticies, i_b+3, n.y * acc);
-	}
-
 	constrainAsync(_a:number, _b:number) {
 		let i_a = _a * this.vert_step_size;
 		let i_b = _b * this.vert_step_size;
 
-		let nx = (this.verticies[i_a+0] - this.verticies[i_b+0]) /  acc;
-		let ny = (this.verticies[i_a+1] - this.verticies[i_b+1]) /  acc;
-
-		// let n = FVec2.sub (
-		// 	this.verticies[i_a+0] / acc,
-		// 	this.verticies[i_a+1] / acc,
-		// 	this.verticies[i_b+0] / acc,
-		// 	this.verticies[i_b+1] / acc
-		// );
-
-
+		let nx = (this.verticies[i_a+0] - this.verticies[i_b+0]);
+		let ny = (this.verticies[i_a+1] - this.verticies[i_b+1]);
 		
 		let mag = FVec2.magnitude(nx, ny);
 
-		let mult = (0.01) * Math.max((mag - this.constraint_settings.len));
+		let mult = (0.01) * Math.max(mag - this.constraint_settings.len);
+
+		mult = Math.log(mult+1);
 
 		nx *= mult;
 		ny *= mult;
 
 		// let n = FVec2.multiplyScalor(nx, ny, (0.01) * Math.max((mag - this.constraint_settings.len), 0));
 
-		this.verticies[i_a+2] -= nx * acc;
-		this.verticies[i_a+3] -= ny * acc;
-		this.verticies[i_b+2] += nx * acc;
-		this.verticies[i_b+3] += ny * acc;
+		this.verticies[i_a+2] -= nx;
+		this.verticies[i_a+3] -= ny;
+		this.verticies[i_b+2] += nx;
+		this.verticies[i_b+3] += ny;
 	}
 
 
@@ -132,7 +102,7 @@ class SystemThread {
 		this.verticies[i] += this.verticies[i+2];
 		this.verticies[i+1] += this.verticies[i+3];
 		this.verticies[i+2] *= this.constraint_settings.drag;
-		this.verticies[i+3] = (this.verticies[i+3] + 0.005 * acc) * this.constraint_settings.drag;
+		this.verticies[i+3] = (this.verticies[i+3] + 0.005) * this.constraint_settings.drag;
 	}
 
 	stepConstraints() {
@@ -168,7 +138,7 @@ class SystemThread {
 
 	step() {
 		this.stepComponents();
-		
+
 		if(Atomics.add(this.coms, 0, BigInt(1)) < BigInt(this.thread_count-1)){
 			Atomics.wait(this.coms, 1 + this.stepNum, BigInt(0));
 		} else {
@@ -179,7 +149,6 @@ class SystemThread {
 	}
 	
 	start() {
-		console.log("Starting loop")
 		while(true) {
 			this.step();
 		}
@@ -187,7 +156,6 @@ class SystemThread {
 }
 
 ctx.onmessage = (evt:_Event) => {
-	console.log("receved message")
 	let thread = new SystemThread (
 		evt.data.buffers,
 		evt.data.vmin,

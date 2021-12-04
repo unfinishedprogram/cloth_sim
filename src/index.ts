@@ -1,7 +1,7 @@
 import { ThreadedSystem } from "./threadedSystem";
 
-let threadSystem = new ThreadedSystem(200*200, 400*200);
-threadSystem.createGrid(200, 200);
+let threadSystem = new ThreadedSystem(200*100, 200*200);
+threadSystem.createGrid(200, 100);
 
 threadSystem.pin(0)
 threadSystem.pin(49)

@@ -1,8 +1,8 @@
 import Vec2 from "../src/vec2";
 import { Vertex } from "./vertex";
 import ClothWorker from "worker-loader!./worker";
+import FVec2 from "../src/fVec2";
 const G = -0.05;
-const acc = 100000;
 
 export class ThreadedSystem {
 	elm:HTMLCanvasElement = document.createElement("canvas");
@@ -19,10 +19,13 @@ export class ThreadedSystem {
 		drag:0.999
 	}
 
-	constraints: Int32Array;
-	verticies: Int32Array;
+	constraints: Float32Array;
+	verticies: Float32Array;
 	pinned: Int8Array;
 	coms: BigInt64Array;
+
+	mousex = 100000;
+	mousey = 100000;
 
 	thread_count:number;
 
@@ -33,6 +36,7 @@ export class ThreadedSystem {
 	vert_step_size = 4;
 	
 	constructor(numVerts:number, numConstraints:number) {	
+
 		// Getting the thread count for optomal performance
 		this.thread_count = navigator.hardwareConcurrency
 
@@ -45,14 +49,22 @@ export class ThreadedSystem {
 		this.pinned_buffer = new SharedArrayBuffer(numVerts)
 
 		// Setting up view for buffers
-		this.constraints = new Int32Array(this.constraints_buffer)
-		this.verticies = new Int32Array(this.verticies_buffer)
+		this.constraints = new Float32Array(this.constraints_buffer)
+		this.verticies = new Float32Array(this.verticies_buffer)
 		this.pinned = new Int8Array(this.pinned_buffer)
 
 		this.elm.width = 1200;
 		this.elm.height = 1200;
-		this.ctx = this.elm.getContext("2d")!;
-		this.ctx.globalAlpha
+		this.ctx = this.elm.getContext("2d")!;		
+
+		this.elm.addEventListener("mousemove", (e) => {
+			this.mousex = e.clientX;
+			this.mousey = e.clientY;
+
+			console.log("MouseX", this.mousex);
+			console.log("MouseY", this.mousey);
+		})
+
 	}
 
 	createGrid(w:number, h:number) {
@@ -98,10 +110,10 @@ export class ThreadedSystem {
 	addVert(vert:Vertex):number {
 		let i = this.vert_step_size * this.verticies_count;
 		this.verticies.set([
-				vert.pos.x*acc,
-				vert.pos.y*acc,
-				vert.vol.x*acc,
-				vert.vol.y*acc
+				vert.pos.x,
+				vert.pos.y,
+				vert.vol.x,
+				vert.vol.y
 			], i)
 		return this.verticies_count++;
 	}
@@ -120,23 +132,32 @@ export class ThreadedSystem {
 		Atomics.store(this.pinned, index, 0)
 	}
 
+
 	draw = () => {
+
 		let now = performance.now();
 		this.ctx.clearRect(0, 0, this.elm.width, this.elm.height)
 		this.ctx.beginPath();
 
 		for( let i = 0; i < this.constraints_count * 2; i += 2 ) {
-			let m = 1/acc;
+			let x1 = this.verticies[this.constraints[ i ] * this.vert_step_size ];
+			let y1 = this.verticies[this.constraints[ i ] * this.vert_step_size + 1];
+			let x2 = this.verticies[this.constraints[i+1] * this.vert_step_size ];
+			let y2 = this.verticies[this.constraints[i+1] * this.vert_step_size + 1];
+			let x0 = this.mousex;
+			let y0 = this.mousey;
 
-			let x1 = this.verticies[this.constraints[ i ] * this.vert_step_size ] * m;
-			let y1 = this.verticies[this.constraints[ i ] * this.vert_step_size + 1] * m;
-			let x2 = this.verticies[this.constraints[i+1] * this.vert_step_size ] * m;
-			let y2 = this.verticies[this.constraints[i+1] * this.vert_step_size + 1] * m;
+
+			let d = FVec2.magnitude((x1-x0*2), (y1-y0*2));
+
+			if(d < 20){
+				this.constraints[i] = -1;
+				this.constraints[i+1] = -1;
+			}
 
 			this.ctx.moveTo(x1*0.5, y1*0.5) 
 			this.ctx.lineTo(x2*0.5, y2*0.5)
 		}
 		this.ctx.stroke();
-		console.log(performance.now()-now);
 	}
 }
