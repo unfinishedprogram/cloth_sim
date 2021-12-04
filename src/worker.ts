@@ -47,7 +47,9 @@ class SystemThread {
 		this.cmax = cmax;
 	}
 
-	constrainAsync(_a:number, _b:number) {
+	constrain(_a:number, _b:number) {
+		if(_a==-1) return;
+		if(_b==-1) return;
 
 		let i_a = _a * this.vert_step_size;
 		let i_b = _b * this.vert_step_size;
@@ -69,43 +71,21 @@ class SystemThread {
 		this.verticies[i_b+3] += ny;
 	}
 
-
-	constrain(_a:number, _b:number) {
-		if(
-			_a >= this.vmin && 
-			_a < this.vmax &&
-			_b >= this.vmin &&
-			_b < this.vmax
-		){
-			this.constrainAsync(_a, _b)
-			// this.constrainSync(_a, _b)
-
-		} else{
-			// this.constrainSync(_a, _b);
-
-			this.constrainAsync(_a, _b)
-		}
-	}
-
-	applyConstraint(index:number){
-		let i = index * 2;
-
-		this.constrainAsync(this.constraints[i], this.constraints[i+1]);
-	}
-
 	stepVertex(index:number){
 		let i = index * this.vert_step_size;
 
 		if(this.pinned[index] == 1) return;
-		this.verticies[i] += this.verticies[i+2];
-		this.verticies[i+1] += this.verticies[i+3];
-		this.verticies[i+2] *= this.constraint_settings.drag;
-		this.verticies[i+3] = (this.verticies[i+3] + 0.005) * this.constraint_settings.drag;
+		
+		this.verticies[i] += this.verticies[i+2]; // Velocity
+		this.verticies[i+1] += this.verticies[i+3]; // Velocity
+		this.verticies[i+2] *= 0.998; // Drag
+		this.verticies[i+3] += 0.005; // Gravity
+		this.verticies[i+3] *= 0.998; // Drag
 	}
 
 	stepConstraints() {
 		for(let i = this.cmin; i < this.cmax; i++){
-			this.applyConstraint(i);
+			this.constrain(this.constraints[i*2], this.constraints[i*2+1]);
 		}
 	}
 
@@ -116,22 +96,8 @@ class SystemThread {
 	}
 
 	stepComponents() {
-		if(this.stepNum == 0) {
-			this.stepConstraints();
-			this.stepNum = 1;
-		} else {
-			this.stepVerts();
-			this.stepNum = 0;
-		}
-	}
-
-	alertSiblings(){
-		let notified = 1;
-		Atomics.store(this.coms, 0, BigInt(0));
-		while(notified < this.thread_count) {
-			let not = Atomics.notify(this.coms, 1);
-			notified += not;
-		}
+		this.stepNum ? this.stepConstraints() : this.stepVerts();
+		this.stepNum = this.stepNum ? 0 : 1;
 	}
 
 	step() {
@@ -141,8 +107,9 @@ class SystemThread {
 			Atomics.wait(this.coms, 1 + this.stepNum, BigInt(0));
 		} else {
 			Atomics.store(this.coms, 0, BigInt(0));
-			let not = 0;
-			while(not < 10) not+=Atomics.notify(this.coms, 1 + this.stepNum);
+			let notified = 1;
+			while(notified < this.thread_count) notified += Atomics.notify(this.coms, 1 + this.stepNum);
+			this.coms[3]++; // Tracking iteration count
 		}
 	}
 	

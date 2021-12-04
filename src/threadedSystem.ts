@@ -2,11 +2,16 @@ import Vec2 from "../src/vec2";
 import { Vertex } from "./vertex";
 import ClothWorker from "worker-loader!./worker";
 import FVec2 from "../src/fVec2";
-const G = -0.05;
+import PerformanceMetrics from "./performanceMetrics";
+
 
 export class ThreadedSystem {
+
 	elm:HTMLCanvasElement = document.createElement("canvas");
 	ctx:CanvasRenderingContext2D;
+
+
+	ips:HTMLElement = document.querySelector("#ips")!;
 
 	constraints_buffer: SharedArrayBuffer;
 	verticies_buffer: SharedArrayBuffer;
@@ -34,13 +39,19 @@ export class ThreadedSystem {
 	constraints_count = 0;
 	verticies_count = 0;
 	vert_step_size = 4;
+	perf:PerformanceMetrics;
 	
 	constructor(numVerts:number, numConstraints:number) {	
+		this.perf = new PerformanceMetrics();
+		document.body.appendChild(this.perf.elm);
 
 		// Getting the thread count for optomal performance
 		this.thread_count = navigator.hardwareConcurrency
 
-		this.coms_buffer = new SharedArrayBuffer(24);
+		this.perf.setMetric("thread_count", this.thread_count);
+		// this.thread_count = 4;
+
+		this.coms_buffer = new SharedArrayBuffer(32);
 		this.coms = new BigInt64Array(this.coms_buffer);
 
 		// Initalizing buffers
@@ -56,15 +67,28 @@ export class ThreadedSystem {
 		this.elm.width = 1200;
 		this.elm.height = 1200;
 		this.ctx = this.elm.getContext("2d")!;		
+		this.ctx.scale(0.5, 0.5);
 
 		this.elm.addEventListener("mousemove", (e) => {
-			this.mousex = e.clientX;
-			this.mousey = e.clientY;
-
-			console.log("MouseX", this.mousex);
-			console.log("MouseY", this.mousey);
+			this.mousex = e.offsetX;
+			this.mousey = e.offsetY;
 		})
+		
+		let ips_buff = new Array(10);
 
+		let t = performance.now();
+		setInterval(() => {
+			let delta = performance.now()-t;
+			t = performance.now();
+
+			ips_buff.shift();
+			ips_buff.push(Number(this.coms[3]) * (1000/delta))
+
+			const sum = ips_buff.reduce((a, n) => a+n, 0) / ips_buff.length;
+			this.perf.setMetric("ips", Number(this.coms[3]) * (1000/delta));
+			this.perf.setMetric("ips10", sum)
+			this.coms[3] = BigInt(0);
+		}, 500)
 	}
 
 	createGrid(w:number, h:number) {
@@ -134,16 +158,32 @@ export class ThreadedSystem {
 
 
 	draw = () => {
+		let start = performance.now();
 
-		let now = performance.now();
-		this.ctx.clearRect(0, 0, this.elm.width, this.elm.height)
+		this.ctx.clearRect(0, 0, this.elm.width*2, this.elm.height*2)
 		this.ctx.beginPath();
+		
+		const vstep = this.vert_step_size;
+		const c_width = this.elm.width*2;
+		const c_height = this.elm.height*2;
 
 		for( let i = 0; i < this.constraints_count * 2; i += 2 ) {
-			let x1 = this.verticies[this.constraints[ i ] * this.vert_step_size ];
-			let y1 = this.verticies[this.constraints[ i ] * this.vert_step_size + 1];
-			let x2 = this.verticies[this.constraints[i+1] * this.vert_step_size ];
-			let y2 = this.verticies[this.constraints[i+1] * this.vert_step_size + 1];
+			if(this.constraints[i]==-1) continue;
+			if(this.constraints[i+1]==-1) continue;
+
+			let x1 = this.verticies[this.constraints[ i ] * vstep ];
+			let x2 = this.verticies[this.constraints[i+1] * vstep ];
+
+			let y1 = this.verticies[this.constraints[ i ] * vstep + 1];
+			let y2 = this.verticies[this.constraints[i+1] * vstep + 1];
+
+
+			if((x1 < 0 && x2 < 0) || (y1 < 0 && y2 < 0)) continue;
+			if((x1 > c_width && x2 > c_width) || (y1 > c_height && y2 > c_height)) continue;
+
+			this.ctx.moveTo(x1, y1) 
+			this.ctx.lineTo(x2, y2)
+
 			let x0 = this.mousex;
 			let y0 = this.mousey;
 
@@ -154,10 +194,9 @@ export class ThreadedSystem {
 				this.constraints[i] = -1;
 				this.constraints[i+1] = -1;
 			}
-
-			this.ctx.moveTo(x1*0.5, y1*0.5) 
-			this.ctx.lineTo(x2*0.5, y2*0.5)
 		}
+
 		this.ctx.stroke();
+		this.perf.setMetric("draw_fps", 1000/(performance.now() - start));
 	}
 }
