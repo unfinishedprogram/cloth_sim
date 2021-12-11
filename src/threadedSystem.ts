@@ -19,11 +19,6 @@ export class ThreadedSystem {
 
 	coms_buffer: SharedArrayBuffer;
 
-	constraint_settings = {
-		len:10,
-		drag:0.999
-	}
-
 	constraints: Float32Array;
 	verticies: Float32Array;
 	pinned: Int8Array;
@@ -52,7 +47,7 @@ export class ThreadedSystem {
 
 		// Getting the thread count for optomal performance
 		this.thread_count = navigator.hardwareConcurrency
-		// this.thread_count = 1;
+		this.thread_count = 16;
 		this.perf.setMetric("thread_count", this.thread_count);
 		// this.thread_count = 4;
 

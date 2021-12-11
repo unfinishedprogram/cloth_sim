@@ -82,9 +82,10 @@ class SystemThread {
 		
 		this.verticies[i] += this.verticies[i+2]; // Velocity
 		this.verticies[i+1] += this.verticies[i+3]; // Velocity
+
 		this.verticies[i+3] += 0.002; // Gravity
-		this.verticies[i+2] *= 0.997; // Drag
-		this.verticies[i+3] *= 0.997; // Drag
+		this.verticies[i+2] *= 0.998; // Drag
+		this.verticies[i+3] *= 0.998; // Drag
 	}
 
 	stepConstraints() {
@@ -106,7 +107,6 @@ class SystemThread {
 
 	step() {
 		this.stepComponents();
-
 		if(Atomics.add(this.coms, 0, BigInt(1)) < BigInt(this.thread_count-1)){
 			Atomics.wait(this.coms, 1 + this.stepNum, BigInt(0));
 		} else {
