@@ -55,9 +55,9 @@ class SystemThread {
 		let nx = (this.verticies[i_a+0] - this.verticies[i_b+0]);
 		let ny = (this.verticies[i_a+1] - this.verticies[i_b+1]);
 
-		let d = (nx ** 2 + ny ** 2) ** 0.5;
-		if(d == 0) return;
-		let mult = (Math.log2(Math.max(d - 10, 0) * 0.125 + 1)*2 )/d;
+		let d = (nx ** 2 + ny ** 2);
+		let multdiv = 1/d;
+		let mult = Math.max(d - 100, 0) * 0.1 * multdiv;
 
 		nx *= mult;
 		ny *= mult;
@@ -100,9 +100,16 @@ class SystemThread {
 	}
 
 	step() {
+
+		let d = performance.now()
 		this.stepComponents();
+		let dt = performance.now() - d;
+		this.coms[5] += BigInt(Math.round(dt * 1000));
 		if(Atomics.add(this.coms, 0, BIG_ONE) < BigInt(this.thread_count-1)){
+			let d = performance.now()
 			Atomics.wait(this.coms, 1 + this.stepNum, BIG_ZERO);
+			let dt = performance.now() - d;
+			this.coms[4] += BigInt(Math.round(dt * 1000));
 		} else {
 			Atomics.store(this.coms, 0, BIG_ZERO);
 			let notified = 1;
