@@ -19,8 +19,8 @@ export class ThreadedSystem {
 
 	coms_buffer: SharedArrayBuffer;
 
-	constraints: Float32Array;
-	verticies: Float32Array;
+	constraints: Uint16Array;
+	verticies: Float64Array;
 	pinned: Int8Array;
 	coms: BigInt64Array;
 
@@ -47,21 +47,21 @@ export class ThreadedSystem {
 
 		// Getting the thread count for optomal performance
 		this.thread_count = navigator.hardwareConcurrency
-		this.thread_count = 16;
-		this.perf.setMetric("thread_count", this.thread_count);
-		// this.thread_count = 4;
+		this.thread_count = 2;
 
-		this.coms_buffer = new SharedArrayBuffer(32);
+		this.perf.setMetric("thread_count", this.thread_count);
+
+		this.coms_buffer = new SharedArrayBuffer(64);
 		this.coms = new BigInt64Array(this.coms_buffer);
 
 		// Initalizing buffers
 		this.constraints_buffer = new SharedArrayBuffer(numConstraints * 8)
-		this.verticies_buffer = new SharedArrayBuffer(numVerts * 16)
+		this.verticies_buffer = new SharedArrayBuffer(numVerts * 8 * 4)
 		this.pinned_buffer = new SharedArrayBuffer(numVerts)
 
 		// Setting up view for buffers
-		this.constraints = new Float32Array(this.constraints_buffer)
-		this.verticies = new Float32Array(this.verticies_buffer)
+		this.constraints = new Uint16Array(this.constraints_buffer)
+		this.verticies = new Float64Array(this.verticies_buffer)
 		this.pinned = new Int8Array(this.pinned_buffer)
 
 		this.elm.width = 1200;
@@ -92,9 +92,10 @@ export class ThreadedSystem {
 		
 		let ips_buff = new Array(10);
 
+		let delta = 500;
 		let t = performance.now();
 		setInterval(() => {
-			let delta = performance.now()-t;
+			delta = performance.now()-t;
 			t = performance.now();
 
 			ips_buff.shift();
@@ -103,7 +104,14 @@ export class ThreadedSystem {
 			const sum = ips_buff.reduce((a, n) => a+n, 0) / ips_buff.length;
 			this.perf.setMetric("ips", Number(this.coms[3]) * (1000/delta));
 			this.perf.setMetric("ips10", sum)
+			this.perf.setMetric("waiting", (Number(this.coms[4]) / 1000) * (1000/delta));
+			this.perf.setMetric("stepping", (Number(this.coms[5]) / 1000) * (1000/delta));
+			this.perf.setMetric("threadding_overhead", (Number(this.coms[4]) / Number(this.coms[5])));
+			this.perf.setMetric("totalTime", (Number(this.coms[4]) + Number(this.coms[5])) * (1/delta));
+
 			this.coms[3] = BigInt(0);
+			this.coms[4] = BigInt(0);
+			this.coms[5] = BigInt(0);
 		}, 500)
 	}
 

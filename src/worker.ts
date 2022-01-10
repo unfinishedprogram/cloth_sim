@@ -1,6 +1,6 @@
-import FVec2 from "./fVec2";
-
 const ctx: Worker = self as any;
+const BIG_ZERO = BigInt(0);
+const BIG_ONE = BigInt(1);
 
 interface _Event extends MessageEvent {
 	data: {
@@ -15,8 +15,8 @@ interface _Event extends MessageEvent {
 
 class SystemThread {
 	stepNum = 0;
-	constraints: Float32Array;
-	verticies: Float32Array;
+	constraints: Uint16Array;
+	verticies: Float64Array;
 	pinned: Int8Array;
 	coms: BigInt64Array;
 
@@ -36,8 +36,8 @@ class SystemThread {
 
 	constructor(buffers:ArrayBuffer[], vmin:number, vmax:number, cmin:number, cmax:number, threads:number) {
 		this.coms = new BigInt64Array(buffers[0])
-		this.constraints = new Float32Array(buffers[1])
-		this.verticies = new Float32Array(buffers[2])
+		this.constraints = new Uint16Array(buffers[1])
+		this.verticies = new Float64Array(buffers[2])
 		this.pinned = new Int8Array(buffers[3])
 		this.thread_count = threads;
 
@@ -48,23 +48,17 @@ class SystemThread {
 	}
 
 	constrain(_a:number, _b:number) {
-		if(_a==-1) return;
-		if(_b==-1) return;
-
+		if(_a==_b) return;
 		let i_a = _a * this.vert_step_size;
 		let i_b = _b * this.vert_step_size;
 
 		let nx = (this.verticies[i_a+0] - this.verticies[i_b+0]);
 		let ny = (this.verticies[i_a+1] - this.verticies[i_b+1]);
 
-		// 10 - Constraint settings length, hard coded for performance
+		let d = (nx ** 2 + ny ** 2);
+		let multdiv = 1/d;
+		let mult = Math.max(d - 100, 0) * 0.1 * multdiv;
 
-		let d = FVec2.magnitude(nx, ny);
-
-		let mult = (Math.log2(Math.max(d - 10, 0) * 0.125 + 1)*2 )/d;
-
-		if(mult == 0) return;
-		
 		nx *= mult;
 		ny *= mult;
 
@@ -106,11 +100,18 @@ class SystemThread {
 	}
 
 	step() {
+
+		let d = performance.now()
 		this.stepComponents();
-		if(Atomics.add(this.coms, 0, BigInt(1)) < BigInt(this.thread_count-1)){
-			Atomics.wait(this.coms, 1 + this.stepNum, BigInt(0));
+		let dt = performance.now() - d;
+		this.coms[5] += BigInt(Math.round(dt * 1000));
+		if(Atomics.add(this.coms, 0, BIG_ONE) < BigInt(this.thread_count-1)){
+			let d = performance.now()
+			Atomics.wait(this.coms, 1 + this.stepNum, BIG_ZERO);
+			let dt = performance.now() - d;
+			this.coms[4] += BigInt(Math.round(dt * 1000));
 		} else {
-			Atomics.store(this.coms, 0, BigInt(0));
+			Atomics.store(this.coms, 0, BIG_ZERO);
 			let notified = 1;
 			while(notified < this.thread_count) notified += Atomics.notify(this.coms, 1 + this.stepNum);
 			this.coms[3]++; // Tracking iteration count
