@@ -19,8 +19,8 @@ export class ThreadedSystem {
 
 	coms_buffer: SharedArrayBuffer;
 
-	constraints: Float32Array;
-	verticies: Float32Array;
+	constraints: Uint16Array;
+	verticies: Float64Array;
 	pinned: Int8Array;
 	coms: BigInt64Array;
 
@@ -56,12 +56,12 @@ export class ThreadedSystem {
 
 		// Initalizing buffers
 		this.constraints_buffer = new SharedArrayBuffer(numConstraints * 8)
-		this.verticies_buffer = new SharedArrayBuffer(numVerts * 16)
+		this.verticies_buffer = new SharedArrayBuffer(numVerts * 8 * 4)
 		this.pinned_buffer = new SharedArrayBuffer(numVerts)
 
 		// Setting up view for buffers
-		this.constraints = new Float32Array(this.constraints_buffer)
-		this.verticies = new Float32Array(this.verticies_buffer)
+		this.constraints = new Uint16Array(this.constraints_buffer)
+		this.verticies = new Float64Array(this.verticies_buffer)
 		this.pinned = new Int8Array(this.pinned_buffer)
 
 		this.elm.width = 1200;
